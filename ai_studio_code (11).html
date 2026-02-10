@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Bunhub - Sports Hub</title>
+    
+    <!-- Fluid Player CSS -->
+    <link rel="stylesheet" href="https://cdn.fluidplayer.com/v3/current/fluidplayer.min.css" type="text/css"/>
+    
+    <!-- Telegram WebApp Script (Required for 'Close App' functionality) -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+    <style>
+        :root {
+            --bg: #f2f4f8;
+            --surface: #ffffff;
+            --accent: #FF5500;
+            --accent-dark: #cc4400;
+            --text: #111111;
+            --text-secondary: #888888;
+            --radius: 16px;
+            --shadow: 0 4px 20px rgba(0,0,0,0.06);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+        body { background-color: var(--bg); color: var(--text); overflow-x: hidden; height: 100vh; width: 100vw; }
+
+        /* --- Animations --- */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in { animation: fadeIn 0.3s ease-out forwards; }
+
+        /* --- Header --- */
+        header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 16px 20px; background: var(--surface); position: sticky; top: 0; z-index: 100;
+            box-shadow: 0 1px 10px rgba(0,0,0,0.05);
+        }
+        .logo { font-weight: 900; font-size: 1.4rem; letter-spacing: -0.5px; font-style: italic; }
+        .logo span { color: var(--accent); }
+        
+        .icon-btn { background: none; border: none; cursor: pointer; padding: 8px; display: flex; align-items: center; justify-content: center; }
+        .icon-btn svg { width: 24px; height: 24px; stroke: var(--text); stroke-width: 2; fill: none; }
+
+        /* --- Age Gate --- */
+        #age-gate {
+            position: fixed; inset: 0; background: var(--bg); z-index: 5000;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            padding: 30px; text-align: center;
+        }
+        .gate-card { background: var(--surface); padding: 40px 30px; border-radius: var(--radius); box-shadow: var(--shadow); max-width: 340px; width: 100%; }
+        .btn-primary { 
+            background: linear-gradient(135deg, var(--accent), var(--accent-dark)); color: white; border: none; 
+            padding: 14px 30px; border-radius: 12px; font-weight: 700; font-size: 16px; 
+            margin-top: 20px; cursor: pointer; width: 100%; box-shadow: 0 4px 10px rgba(255, 85, 0, 0.3);
+            transition: transform 0.1s;
+        }
+        .btn-primary:active { transform: scale(0.98); }
+
+        /* --- Views Management --- */
+        .view { display: none; padding-bottom: 40px; }
+        .view.active { display: block; }
+        .container { padding: 0 20px; }
+
+        /* --- Tabs --- */
+        .tab-container { 
+            display: flex; padding: 5px; background: #e0e4eb; border-radius: 14px; margin: 20px; 
+            position: relative; overflow: hidden;
+        }
+        .tab { 
+            flex: 1; text-align: center; padding: 10px; font-weight: 600; color: #777; 
+            cursor: pointer; z-index: 2; border-radius: 10px; transition: color 0.3s; font-size: 14px;
+        }
+        .tab.active { color: var(--text); background: white; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+
+        /* --- Video Grid --- */
+        .video-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; padding: 0 20px; }
+        .video-card { background: var(--surface); border-radius: 14px; overflow: hidden; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.03); transition: transform 0.2s; }
+        .video-card:active { transform: scale(0.97); }
+        .thumb-container { position: relative; width: 100%; aspect-ratio: 16/9; background: #ddd; }
+        .thumb-container img { width: 100%; height: 100%; object-fit: cover; }
+        .duration { 
+            position: absolute; bottom: 6px; right: 6px; 
+            background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
+            color: white; padding: 3px 8px; border-radius: 6px; 
+            font-size: 10px; font-weight: 600; 
+        }
+        .video-info { padding: 10px; }
+        .video-title { font-size: 0.9rem; font-weight: 700; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+        /* --- Player Page --- */
+        #player-wrapper { width: 100%; background: #000; position: sticky; top: 0; z-index: 50; }
+        .player-meta { padding: 20px; background: var(--surface); border-bottom-left-radius: 20px; border-bottom-right-radius: 20px; box-shadow: var(--shadow); margin-bottom: 20px; }
+        .player-meta h2 { font-size: 1.2rem; margin-bottom: 5px; }
+        .player-meta p { font-size: 0.9rem; color: var(--text-secondary); }
+        
+        .section-header { font-size: 1.1rem; font-weight: 800; padding: 0 20px; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; }
+        .section-header::before { content: ''; display: block; width: 4px; height: 18px; background: var(--accent); border-radius: 2px; }
+
+        /* --- Admin Forms --- */
+        .admin-form { display: flex; flex-direction: column; gap: 15px; max-width: 400px; margin: 30px auto; padding: 20px; background: var(--surface); border-radius: var(--radius); }
+        input { width: 100%; padding: 14px; border: 2px solid #eee; border-radius: 10px; outline: none; transition: 0.3s; }
+        input:focus { border-color: var(--accent); }
+        
+        /* --- Ad Overlay --- */
+        #ad-view {
+            position: fixed; inset: 0; background: white; z-index: 6000; display: none;
+        }
+        #ad-frame { width: 100%; height: 100%; border: none; }
+        #ad-timer-btn { 
+            position: absolute; top: 20px; right: 20px; 
+            width: 44px; height: 44px; border-radius: 50%;
+            background: rgba(0,0,0,0.6); color: white; border: 2px solid white;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 800; font-size: 18px; z-index: 6100; cursor: default;
+        }
+        #ad-timer-btn.closable { background: var(--accent); border-color: var(--accent); cursor: pointer; }
+    </style>
+    
+    <!-- Fluid Player JS -->
+    <script src="https://cdn.fluidplayer.com/v3/current/fluidplayer.min.js"></script>
+</head>
+<body>
+
+    <!-- Age Gate -->
+    <div id="age-gate">
+        <div class="gate-card fade-in">
+            <div class="logo" style="font-size: 2rem; margin-bottom: 10px;">BUN<span>HUB</span></div>
+            <p style="margin: 15px 0; color: #666; line-height: 1.5;">Contains sports content intended for mature audiences.</p>
+            <button class="btn-primary" onclick="app.dismissAgeGate()">I AM 18+ ENTER</button>
+        </div>
+    </div>
+
+    <!-- Ad Overlay -->
+    <div id="ad-view">
+        <div id="ad-timer-btn">5</div>
+        <iframe id="ad-frame"></iframe>
+    </div>
+
+    <!-- Header -->
+    <header id="main-header">
+        <div class="logo">BUN<span>HUB</span></div>
+        <button class="icon-btn" onclick="app.navigateTo('admin-login')">
+            <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+        </button>
+    </header>
+
+    <!-- Home View -->
+    <main id="home-view" class="view active">
+        <div class="tab-container">
+            <div class="tab active" onclick="app.switchTab('trending')">Trending</div>
+            <div class="tab" onclick="app.switchTab('highlights')">Highlights</div>
+        </div>
+        <div id="video-grid" class="video-grid fade-in">
+            <!-- Videos injected by JS -->
+        </div>
+    </main>
+
+    <!-- Player View -->
+    <div id="player-view" class="view">
+        <div id="player-wrapper">
+            <video id="fluid-player" style="width: 100%; height: 100%;" type="video/mp4"></video>
+        </div>
+        <div class="player-meta">
+            <h2 id="player-title"></h2>
+            <p id="player-desc">Action • Sports</p>
+        </div>
+        
+        <div class="section-header">Related Videos</div>
+        <div id="related-grid" class="video-grid">
+            <!-- Related videos injected here -->
+        </div>
+    </div>
+
+    <!-- Admin Login View -->
+    <div id="admin-login" class="view">
+        <div class="container fade-in">
+            <h2 style="text-align: center; margin-top: 30px;">Admin Access</h2>
+            <div class="admin-form">
+                <input type="password" id="admin-pass" placeholder="Enter Admin Password">
+                <button class="btn-primary" onclick="app.loginAdmin()">Login</button>
+                <button class="btn-primary" style="background: #ddd; color: #333; margin-top: 10px;" onclick="app.handleBack()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Upload View -->
+    <div id="admin-upload" class="view">
+        <div class="container fade-in">
+            <h2 style="text-align: center; margin-top: 30px;">Upload Content</h2>
+            <div class="admin-form">
+                <input type="text" id="vid-title" placeholder="Video Title">
+                <input type="file" id="vid-file" accept="video/*">
+                <p id="upload-status" style="font-size: 13px; color: var(--accent); text-align: center;"></p>
+                <button class="btn-primary" onclick="app.handleUpload()">Upload to Trending</button>
+                <button class="btn-primary" style="background: #ddd; color: #333; margin-top: 10px;" onclick="app.navigateTo('home-view')">Back to Home</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- DATA ---
+        const DB = {
+            trending: [
+                { id: 1, title: "Insane Bicycle Kick Goal 2024", duration: "0:45", thumb: "https://images.unsplash.com/photo-1579952363873-27f3bde9be2e?w=600", url: "https://www.w3schools.com/html/mov_bbb.mp4" },
+                { id: 2, title: "Lakers vs Warriors Final Minute", duration: "2:30", thumb: "https://images.unsplash.com/photo-1546519638-68e109498ffc?w=600", url: "https://www.w3schools.com/html/movie.mp4" },
+                { id: 3, title: "F1 Monaco Grand Prix Highlights", duration: "5:12", thumb: "https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?w=600", url: "https://www.w3schools.com/html/mov_bbb.mp4" },
+                { id: 4, title: "UFC Knockout of the Year", duration: "1:10", thumb: "https://images.unsplash.com/photo-1544698310-74ea9d188c1b?w=600", url: "https://www.w3schools.com/html/movie.mp4" }
+            ],
+            highlights: [
+                { id: 5, title: "Best Tennis Rally Ever", duration: "3:05", thumb: "https://images.unsplash.com/photo-1622279457486-62dcc4a431d6?w=600", url: "https://www.w3schools.com/html/mov_bbb.mp4" },
+                { id: 6, title: "Touchdown Pass Superbowl", duration: "0:50", thumb: "https://images.unsplash.com/photo-1566577739112-5180d4bf9390?w=600", url: "https://www.w3schools.com/html/movie.mp4" },
+                { id: 7, title: "Marathon World Record Finish", duration: "2:00", thumb: "https://images.unsplash.com/photo-1552674605-46d5316165a1?w=600", url: "https://www.w3schools.com/html/mov_bbb.mp4" }
+            ]
+        };
+
+        const CONFIG = {
+            adLink: "https://rebrandlink.com/dl/420335",
+            adDuration: 5
+        };
+
+        // --- APP LOGIC ---
+        const app = {
+            currentTab: 'trending',
+            currentView: 'home-view',
+            history: [], // For navigation stack
+            adActive: false,
+            adClosable: false,
+            fluidInstance: null,
+            adTimerInterval: null,
+
+            init: function() {
+                // Initialize Telegram WebApp
+                if (window.Telegram && window.Telegram.WebApp) {
+                    window.Telegram.WebApp.ready();
+                    window.Telegram.WebApp.expand();
+                    
+                    // Handle Telegram Back Button
+                    window.Telegram.WebApp.BackButton.onClick(app.handleBack);
+                }
+                
+                app.renderGrid();
+            },
+
+            dismissAgeGate: function() {
+                document.getElementById('age-gate').style.display = 'none';
+                // Show specific back button if relevant
+                app.updateBackButton();
+            },
+
+            // --- NAVIGATION ---
+            navigateTo: function(viewId, data = null) {
+                // Stop video if leaving player
+                if (this.currentView === 'player-view' && viewId !== 'player-view') {
+                    this.destroyPlayer();
+                }
+
+                // Add current view to history before moving
+                this.history.push(this.currentView);
+                
+                document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+                document.getElementById(viewId).classList.add('active');
+                
+                this.currentView = viewId;
+                
+                // Hide header on player view for immersion
+                document.getElementById('main-header').style.display = (viewId === 'player-view') ? 'none' : 'flex';
+
+                this.updateBackButton();
+                window.scrollTo(0,0);
+            },
+
+            handleBack: function() {
+                // 1. If Ad is active
+                if (app.adActive) {
+                    if (app.adClosable) {
+                        app.closeAd(); // Allow closing if timer done
+                    }
+                    return; // Block back action if timer running
+                }
+
+                // 2. If History is empty (User is at start), Close App
+                if (app.history.length === 0 || app.currentView === 'home-view') {
+                    if (window.Telegram && window.Telegram.WebApp) {
+                        window.Telegram.WebApp.close();
+                    }
+                    return;
+                }
+
+                // 3. Standard Go Back
+                const prevView = app.history.pop();
+                
+                if (app.currentView === 'player-view') {
+                    app.destroyPlayer();
+                }
+
+                document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+                document.getElementById(prevView).classList.add('active');
+                app.currentView = prevView;
+                
+                // Restore header
+                document.getElementById('main-header').style.display = (prevView === 'player-view') ? 'none' : 'flex';
+
+                app.updateBackButton();
+            },
+
+            updateBackButton: function() {
+                if (window.Telegram && window.Telegram.WebApp) {
+                    if (app.currentView === 'home-view') {
+                        window.Telegram.WebApp.BackButton.hide();
+                    } else {
+                        window.Telegram.WebApp.BackButton.show();
+                    }
+                }
+            },
+
+            // --- HOME & TABS ---
+            switchTab: function(tab) {
+                this.currentTab = tab;
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                event.target.classList.add('active');
+                this.renderGrid();
+            },
+
+            renderGrid: function() {
+                const grid = document.getElementById('video-grid');
+                grid.innerHTML = '';
+                
+                const videos = DB[this.currentTab];
+                
+                videos.forEach(vid => {
+                    const card = document.createElement('div');
+                    card.className = 'video-card';
+                    card.onclick = () => app.triggerAdSequence(vid);
+                    card.innerHTML = `
+                        <div class="thumb-container">
+                            <img src="${vid.thumb}" alt="${vid.title}">
+                            <div class="duration">${vid.duration}</div>
+                        </div>
+                        <div class="video-info">
+                            <div class="video-title">${vid.title}</div>
+                        </div>
+                    `;
+                    grid.appendChild(card);
+                });
+            },
+
+            // --- AD SYSTEM ---
+            triggerAdSequence: function(videoData) {
+                this.adActive = true;
+                this.adClosable = false;
+                
+                const adView = document.getElementById('ad-view');
+                const adFrame = document.getElementById('ad-frame');
+                const timerBtn = document.getElementById('ad-timer-btn');
+
+                adView.style.display = 'block';
+                adFrame.src = CONFIG.adLink;
+                
+                let timeLeft = CONFIG.adDuration;
+                timerBtn.innerText = timeLeft;
+                timerBtn.classList.remove('closable');
+                timerBtn.onclick = null;
+
+                // Countdown
+                this.adTimerInterval = setInterval(() => {
+                    timeLeft--;
+                    if (timeLeft > 0) {
+                        timerBtn.innerText = timeLeft;
+                    } else {
+                        clearInterval(app.adTimerInterval);
+                        app.adClosable = true;
+                        timerBtn.innerHTML = '✕';
+                        timerBtn.classList.add('closable');
+                        timerBtn.onclick = () => {
+                            app.closeAd(videoData);
+                        };
+                    }
+                }, 1000);
+            },
+
+            closeAd: function(videoData) {
+                clearInterval(this.adTimerInterval);
+                document.getElementById('ad-view').style.display = 'none';
+                document.getElementById('ad-frame').src = ''; // Stop ad audio/loading
+                this.adActive = false;
+                
+                // If we have videoData, navigate to player
+                if (videoData) {
+                    this.loadPlayer(videoData);
+                }
+            },
+
+            // --- PLAYER ---
+            loadPlayer: function(vid) {
+                this.navigateTo('player-view');
+                
+                document.getElementById('player-title').innerText = vid.title;
+                
+                // Setup Fluid Player
+                const videoEl = document.getElementById('fluid-player');
+                videoEl.src = vid.url;
+
+                // Configure Fluid Player
+                if (this.fluidInstance) {
+                    this.fluidInstance.destroy();
+                }
+
+                this.fluidInstance = fluidPlayer('fluid-player', {
+                    layoutControls: {
+                        primaryColor: "#FF5500",
+                        fillToContainer: true,
+                        autoPlay: true,
+                        mute: false,
+                        allowDownload: false,
+                        playbackRateEnabled: true,
+                        allowTheatre: false
+                    }
+                });
+                
+                this.renderRelated(vid.id);
+            },
+
+            renderRelated: function(currentId) {
+                const grid = document.getElementById('related-grid');
+                grid.innerHTML = '';
+                
+                // Get all videos combined, exclude current
+                const allVids = [...DB.trending, ...DB.highlights].filter(v => v.id !== currentId);
+                const shuffled = allVids.sort(() => 0.5 - Math.random()).slice(0, 4); // Take 4 random
+
+                shuffled.forEach(vid => {
+                    const card = document.createElement('div');
+                    card.className = 'video-card';
+                    card.onclick = () => {
+                        // Directly load new video in player without ad if user is already in player
+                        // Or trigger ad again? Let's just switch video for better UX
+                        document.getElementById('fluid-player').src = vid.url;
+                        document.getElementById('player-title').innerText = vid.title;
+                        
+                        // Re-init player to catch source change
+                        if(app.fluidInstance) app.fluidInstance.destroy();
+                        app.fluidInstance = fluidPlayer('fluid-player', {
+                            layoutControls: { primaryColor: "#FF5500", autoPlay: true }
+                        });
+                        app.renderRelated(vid.id);
+                        window.scrollTo(0,0);
+                    };
+                    card.innerHTML = `
+                        <div class="thumb-container">
+                            <img src="${vid.thumb}" alt="${vid.title}">
+                            <div class="duration">${vid.duration}</div>
+                        </div>
+                        <div class="video-info">
+                            <div class="video-title">${vid.title}</div>
+                        </div>
+                    `;
+                    grid.appendChild(card);
+                });
+            },
+
+            destroyPlayer: function() {
+                if (this.fluidInstance) {
+                    this.fluidInstance.destroy();
+                    this.fluidInstance = null;
+                }
+            },
+
+            // --- ADMIN ---
+            loginAdmin: function() {
+                const pass = document.getElementById('admin-pass').value;
+                if(pass === "admin123") {
+                    this.navigateTo('admin-upload');
+                } else {
+                    alert("Incorrect Password");
+                }
+            },
+
+            handleUpload: async function() {
+                const title = document.getElementById('vid-title').value;
+                const fileInput = document.getElementById('vid-file');
+                const status = document.getElementById('upload-status');
+
+                if(!title || !fileInput.files[0]) return alert("Fill all fields");
+
+                status.innerText = "Processing thumbnail...";
+                const file = fileInput.files[0];
+                const url = URL.createObjectURL(file);
+
+                const thumb = await this.generateThumbnail(url);
+                
+                const newVid = {
+                    id: Date.now(),
+                    title: title,
+                    duration: "New",
+                    thumb: thumb,
+                    url: url
+                };
+
+                // Add to Trending by default
+                DB.trending.unshift(newVid);
+                
+                status.innerText = "Upload Successful!";
+                setTimeout(() => {
+                    status.innerText = "";
+                    this.navigateTo('home-view');
+                    // Ensure we are on trending tab to see upload
+                    this.switchTab('trending');
+                }, 1000);
+            },
+
+            generateThumbnail: function(videoUrl) {
+                return new Promise((resolve) => {
+                    const video = document.createElement('video');
+                    video.src = videoUrl;
+                    video.muted = true;
+                    video.currentTime = 1; 
+                    
+                    video.onloadeddata = () => {
+                        // Use a slight timeout to ensure frame is ready
+                        setTimeout(() => {
+                            const canvas = document.createElement('canvas');
+                            canvas.width = 640;
+                            canvas.height = 360;
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                            resolve(canvas.toDataURL('image/jpeg'));
+                        }, 500);
+                    };
+                });
+            }
+        };
+
+        // Start
+        window.addEventListener('load', () => app.init());
+
+    </script>
+</body>
+</html>
